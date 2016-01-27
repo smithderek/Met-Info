@@ -1,0 +1,7 @@
+clean golden data notes;
+-maximo asset # 13824
+-med precip rate used, i.e., lam=0.005
+-seed = 1234
+-same precip and noise for each strain gauge
+-baseline =42
+- n=5000
