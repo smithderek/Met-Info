@@ -10,8 +10,10 @@ seed<-1234
 seed1<-1234
 seed2<-2345
 seed3<-3456
-baseline<-42
-size<-2000
+baseline<-998
+size<-1000
+
+currDir<-"C:\\Users\\dsmith\\Documents\\FIU\\Git\\Met-Info\\pri_precip\\Golden Data"
 ```
 
 ```{r,echo=FALSE}
@@ -59,6 +61,10 @@ cumPrecip<-cumsum(expPrecip)
 
 #add on initial starting point for gauge
 precipTotals<-cumPrecip+baseline
+
+##add in emptying event half way through
+precipTotals<-c(precipTotals[1:length(precipTotals)/2],precipTotals[(length(precipTotals)/2)+1:length(precipTotals)]-precipTotals[length(precipTotals)/2])
+
 ```
 
 
@@ -125,7 +131,7 @@ else(return("Invalid Noise Selection"))
 ```{r,echo=FALSE}
 ## Set the noise level of the strain gauges
 ## choices include "low", "medium", and "high"
-no1<-"high"
+no1<-"medium"
 no2<-"low"
 no3<-"low"
 
@@ -284,8 +290,8 @@ gapData<<-data.frame(data.gap)
 ```
 
 ```{r, echo=FALSE,warning=FALSE}
-nGaps<-100
-minGap<-50
+nGaps<-50
+minGap<-25
 maxGap<-100
 gap(data=precip,nGaps=nGaps,minGap=minGap,maxGap=maxGap)
 
@@ -296,9 +302,9 @@ gap(data=precip,nGaps=nGaps,minGap=minGap,maxGap=maxGap)
 
 ##Write data sets to file
 
-write.table(gapData,"C:\\Users\\Derek\\Documents\\NEON\\pri_precip\\Golden Data\\priPrecip_gap_goldenData_maxID_13824.csv",row.names=FALSE,sep=",")
+#write.table(gapData,paste(currDir,"priPrecip_gap_goldenData_maxID_13824.csv",sep="\\"),row.names=FALSE,sep=",")
 
-write.table(cleanData,"C:\\Users\\Derek\\Documents\\NEON\\pri_precip\\Golden Data\\all_priPrecip_clean_goldenData_maxID_13824.csv",row.names=FALSE,sep=",")
+#write.table(cleanData,paste(currDir,"all_priPrecip_clean_goldenData_maxID_13824.csv",sep="\\"),row.names=FALSE,sep=",")
 
 
 ```
@@ -314,6 +320,15 @@ The golden data set was created with the following inputs
 * The size of the golden data set in terms of the number of 5 minute averages is `r size`.
 * Gauge nosie was set to `r no1` using seed `r seed1` for gauge 1, `r no2` using seed `r seed2` for gauge 2, and `r no3` using seed `r seed3` for gauge 3.
 * There are `r nGaps` gaps throughout the data set of 0.1 Hz data ranging in size from ` r minGap` to `r maxGap`.
+
+
+
+
+
+
+
+
+
 
 
 ```{r,echo=FALSE}
@@ -372,30 +387,45 @@ data<-precip.min.means[precip.min.means$min=="00" |precip.min.means$min=="05"|pr
 
 
 ##compute the aveage depth for the strain gauge over the 3 hour period
-##First determine the difference between depth measurements. If an NA exists then look two steps back for the difference
+##First determine the difference between depth measurements. If an NA exists then look two steps back for the difference if that doesn't exsit then precip is set to NA and if measurements are missing from two or more gauges the priorDepthQF is set to 1.
 
 #temp vectors for lagged differences
 x<-as.numeric(c(NA,diff(data$DEPTH1,lag=1,differences=1)))
 y<-as.numeric(c(NA,NA,diff(data$DEPTH1,lag=2,differences=1)))
+z<-data$DEPTH1
 
 #final lagged differences for strain gauge 1
 data$delta1<-ifelse(!is.na(x),x,y)
 
+data$priorDepth1<-ifelse(is.na(z),0,ifelse(!is.na(x),0,ifelse(!is.na(y),0,1)))
+
 #temp vectors for lagged differences
 x<-as.numeric(c(NA,diff(data$DEPTH2,lag=1,differences=1)))
 y<-as.numeric(c(NA,NA,diff(data$DEPTH2,lag=2,differences=1)))
+z<-data$DEPTH2
 
 #final lagged differences for strain gauge 2
 data$delta2<-ifelse(!is.na(x),x,y)
 
-
+data$priorDepth2<-ifelse(is.na(z),0,ifelse(!is.na(x),0,ifelse(!is.na(y),0,1)))
 
 #temp vectors for lagged differences
 x<-as.numeric(c(NA,diff(data$DEPTH3,lag=1,differences=1)))
 y<-as.numeric(c(NA,NA,diff(data$DEPTH3,lag=2,differences=1)))
+z<-data$DEPTH3
 
 #final lagged differences for strain gauge 3
 data$delta3<-ifelse(!is.na(x),x,y)
+
+data$priorDepth3<-ifelse(is.na(z),0,ifelse(!is.na(x),0,ifelse(!is.na(y),0,1)))
+
+##create the priorDepthQF that is set to one if data is missing for 2 or more of the strain gauges
+
+#create a vector with the sums of the priorDepth results
+sumOfpriorDepths<-apply(data[,c("priorDepth1","priorDepth2", "priorDepth3")],MARGIN=1,FUN=sum)
+
+#create the priorDepthQF
+data$priorDepthQF<-ifelse(sumOfpriorDepths >= 2,1,0)
 
 
 
@@ -408,7 +438,24 @@ data$aveDelta<-apply(del123,MARGIN=1,FUN=mean)
 
 
 
+################################################
+## NULL if overflowing
+################################################
 
+## 
+
+depthInfo<-apply(data[,c("DEPTH1","DEPTH2", "DEPTH3")],MARGIN=1,FUN=sum)
+
+#check to see if any of the depth averages indicate the gauge was overflowing
+depth1OF<-ifelse(data$DEPTH1>=1000,1,0)
+depth2OF<-ifelse(data$DEPTH2>=1000,1,0)
+depth3OF<-ifelse(data$DEPTH3>=1000,1,0)
+
+##combine the results
+depthOF<-cbind(depth1OF,depth2OF,depth3OF)
+depthOFInfo<-apply(depthOF,MARGIN=1,FUN=sum)
+##set the precip to 0 if the gauge was overflowing and set the overflowQF to 1
+data$overflowQF<-ifelse(depthOFInfo>=1,1,0)
 
 
 
@@ -599,7 +646,7 @@ missingWire<-0
 #USCRN code chunk - weightedAverageOfDeltas
 ##############################################
 
-  dep<-cbind(x$time[25:36],x$delta1[25:36],x$delta2[25:36],x$delta3[25:36],(scaledWireWeight1*x$delta1[25:36])+(scaledWireWeight2*x$delta2[25:36])+(scaledWireWeight3*x$delta3[25:36]),rep(lowDepth,times=12),rep(giant,times=12),rep(missingWire,times=12),x$gapQF[25:36])
+  dep<-cbind(x$time[25:36],x$delta1[25:36],x$delta2[25:36],x$delta3[25:36],(scaledWireWeight1*x$delta1[25:36])+(scaledWireWeight2*x$delta2[25:36])+(scaledWireWeight3*x$delta3[25:36]),rep(lowDepth,times=12),rep(giant,times=12),rep(missingWire,times=12),x$gapQF[25:36],x$priorDepthQF[25:36],x$overflowQF[25:36])
     
   precipOut<-rbind(precipOut,dep)
 
@@ -609,7 +656,7 @@ missingWire<-0
 
 
 ##create column headers
-colnames(precipOut)<-c("time","delta1","delta2","delta3","intPrecip","lowDepthQF","exDeltaQF","missingWireInfoQF","gapQF")
+colnames(precipOut)<-c("time","delta1","delta2","delta3","intPrecip","lowDepthQF","exDeltaQF","missingWireInfoQF","gapQF", "priorDepthQF","overflowQF")
 
 ##Convert matrix to data frame
 precipOut<-as.data.frame(precipOut)
@@ -713,7 +760,7 @@ zeroIfNonpositiveDelta(deltas=precipOut[,c("delta1","delta2","delta3")],adjusted
 #Rounding data
 ###############
 
-##Rounding percipitation values to the tenth decimal place and numbers ending in 5 will be rounded up.
+##Rounding percipitation values to the hundredth decimal place and numbers ending in 5 will be rounded up.
 
 round2 = function(x, n) {
   posneg = sign(x)
@@ -726,7 +773,7 @@ round2 = function(x, n) {
 
 
 ##Round the precipitation values
-precipOut$roundedPrecip<-round2(precipOut$radjPrecip,n=1)
+precipOut$roundedPrecip<-round2(precipOut$radjPrecip,n=2)
 ```
 
 ```{r,echo=FALSE}
@@ -736,38 +783,128 @@ precipOut$roundedPrecip<-round2(precipOut$radjPrecip,n=1)
 
 ## Force any value less than 0.2 to 0
 precipOut$detectablePrecip<-ifelse(precipOut$roundedPrecip<0.25,0,precipOut$roundedPrecip)
+precipOut$finalPrecip<-ifelse(precipOut$overflowQF>0,0,precipOut$detectablePrecip)
+
 
 ```
 
 ```{r,echo=FALSE}
-################################################
-## NULL if overflowing
-################################################
-
-## Force any value less than 0.2 to 0
-precipOut$finalPrecip<-ifelse(precipOut$detectablePrecip>1000,0,precipOut$detectablePrecip)
-precipOut$overflowQF<-ifelse(precipOut$detectablePrecip>1000,1,0)
+# ################################################
+# ## NULL if overflowing
+# ################################################
+# 
+# ## 
+# 
+# depthInfo<-apply(data[,c("DEPTH1","DEPTH2", "DEPTH3")],MARGIN=1,FUN=sum)
+# 
+# #check to see if any of the depth averages indicate the gauge was overflowing
+# depth1OF<-ifelse(data$DEPTH1>=1000,1,0)
+# depth2OF<-ifelse(data$DEPTH2>=1000,1,0)
+# depth3OF<-ifelse(data$DEPTH3>=1000,1,0)
+# 
+# ##combine the results
+# depthOF<-cbind(depth1OF,depth2OF,depth3OF)
+# depthOFInfo<-apply(depthOF,MARGIN=1,FUN=sum)
+# ##set the precip to 0 if the gauge was overflowing and set the overflowQF to 1
+# precipOut$finalPrecip<-ifelse(depthOFInfo>=1,0,precipOut$detectablePrecip)
+# precipOut$overflowQF<-ifelse(depthOFInfo>=1,1,0)
 ```
 
-```{r,echo=FALSE}
+
+```{r, echo=FALSE}
+
+##Write final data set to file
+
+write.table(precipOut,paste(currDir,"final_priPrecip_goldenData_maxID_13824.csv",sep="\\"),row.names=FALSE,sep=",")
+
+```
+
+#Results
+
+The were `r nrow(precipOut[precipOut$finalPrecip >0,])` of precipitation events totaling `r sum(precipOut$finalPrecip)` mm in the dataset.
+
+###Overview of quality flag results
+
+Quality flag results are presented below by both the number of failures for a given quality flag as well as the percent of failures over the entire data set.
+
+lowDepthQF| exDeltaQF | missingWireInfoQF| gaugeNoiseQF| WireNoiseQF | OverflowQF | priorDepthQF |nullQF
+--------|--------|--------|--------|--------|--------|--------|--------
+`r nrow(precipOut[precipOut$lowDepthQF==1,])` ( `r round(nrow(precipOut[precipOut$lowDepthQF==1,])/nrow(precipOut)*100,digits=2)`%)|`r nrow(precipOut[precipOut$exDeltaQF==1,])` ( `r round(nrow(precipOut[precipOut$exDeltaQF==1,])/nrow(precipOut)*100,digits=2)`%) | `r nrow(precipOut[precipOut$missingWireInfoQF==1,])` ( `r round(nrow(precipOut[precipOut$missingWireInfoQF==1,])/nrow(precipOut)*100,digits=2)`%) |`r nrow(precipOut[precipOut$gaugeNoiseQF==1,])` ( `r round(nrow(precipOut[precipOut$gaugeNoiseQF==1,])/nrow(precipOut)*100,digits=2)`%) |`r nrow(precipOut[precipOut$wireNoiseQF==1,])` ( `r round(nrow(precipOut[precipOut$wireNoiseQF==1,])/nrow(precipOut)*100,digits=2)`%) | `r nrow(precipOut[precipOut$overflowQF==1,])` ( `r nrow(precipOut[precipOut$overflowQF==1,])/nrow(precipOut)`%) | `r nrow(precipOut[precipOut$priorDepthQF==1,])` ( `r round(nrow(precipOut[precipOut$priorDepthQF==1,])/nrow(precipOut)*100,digits=2)`%)|`r nrow(precipOut[precipOut$gapQF==1,])` ( `r round(nrow(precipOut[precipOut$gapQF==1,])/nrow(precipOut)*100,digits=2)`%)
+
+
+##Plots
+
+The plot below shows the status of the nullQF troughout the data set.
+```{r,echo=FALSE,warning=FALSE}
+
+##Null Plots
+
 library(ggplot2)
-foo<-ggplot(precipOut) + geom_point(aes(x = time, y = finalPrecip, colour =  gapQF > 0)) +
-  scale_colour_manual(name = 'Gap', values = setNames(c('red','blue'),c(T, F))) +
+p1<-ggplot(precipOut) + geom_point(aes(x = time, y = finalPrecip, colour =  gapQF > 0)) +
+  scale_colour_manual(name = 'Null', values = setNames(c('red','blue'),c(T, F))) +
   xlab('Time') + ylab('Precipitation (mm)')
 
-foo
+p1
 
+```
+
+The plot below shows the status of the priorDepthQF troughout the data set.
+```{r,echo=FALSE,warning=FALSE}
+
+##priorDepthQF Plots
+
+library(ggplot2)
+p2<-ggplot(precipOut) + geom_point(aes(x = time, y = finalPrecip, colour =  priorDepthQF > 0)) +
+  scale_colour_manual(name = 'Prior Depths Missing', values = setNames(c('red','blue'),c(T, F))) +
+  xlab('Time') + ylab('Precipitation (mm)')
+
+p2
+
+```
+
+
+The plot below shows the status of the wireNoiseQF troughout the data set.
+```{r,echo=FALSE,warning=FALSE}
+##Wire Noise Plot
+p3<-ggplot(precipOut) + geom_point(aes(x = time, y = finalPrecip, colour =  wireNoiseQF > 0)) +
+  scale_colour_manual(name = 'Wire Noise', values = setNames(c('red','blue'),c(T, F))) +
+  xlab('Time') + ylab('Precipitation (mm)')
+
+p3
+
+```
+
+The plot below shows where the exDeltaQF failed. The vertical line indicates where the flag was set to 1, which was due to a simulated bucket emptying event.
+
+```{r,echo=FALSE,warning=FALSE}
+##extreme delta
+p4<-ggplot(precipOut) + geom_point(aes(x = time, y = finalPrecip, colour =  exDeltaQF > 0)) +
+  scale_colour_manual(name = 'exDeltaQF', values = setNames(c('red','blue'),c(T, F))) +
+   geom_vline(xintercept=as.numeric(precipOut$time[precipOut$exDeltaQF==1]), linetype="dotted")+
+  xlab('Time') + ylab('Precipitation (mm)')
+
+p4
+
+```
+
+
+The plot below shows where the overflowQF failed. The vertical line indicates where the flag was set to 1, which was due to a simulated overflowing bucket.
+
+```{r,echo=FALSE,warning=FALSE}
+##overflowing gauge 
+p5<-ggplot(precipOut) + geom_point(aes(x = time, y = finalPrecip, colour =  overflowQF > 0)) +
+  scale_colour_manual(name = 'Overflowing Gauge', values = setNames(c('red','blue'),c(T, F))) +
+   geom_vline(xintercept=as.numeric(precipOut$time[precipOut$overflowQF==1]), linetype="dotted")+
+  xlab('Time') + ylab('Precipitation (mm)')
+
+p5
+
+```
+
+
+````{r, echo=FALSE}
+##summary stats
 library(fields)
 
-print(head(precipOut))
 print(stats(precipOut))
-
-
-
-foo2<-ggplot(precipOut) + geom_point(aes(x = time, y = finalPrecip, colour =  wireNoiseQF > 0)) +
-  scale_colour_manual(name = 'Gap', values = setNames(c('red','blue'),c(T, F))) +
-  xlab('Time') + ylab('Precipitation (mm)')
-
-foo2
-
 ```
