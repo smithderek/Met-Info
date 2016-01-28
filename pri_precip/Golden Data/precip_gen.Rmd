@@ -2,7 +2,7 @@
 title: "Precip Golden Data"
 author: "Derek Smith"
 date: "Tuesday, January 26, 2016"
-output: html_document
+output: pdf_document
 ---
 
 ```{r,echo=FALSE}
@@ -10,7 +10,7 @@ seed<-1234
 seed1<-1234
 seed2<-2345
 seed3<-3456
-baseline<-998
+baseline<-997
 size<-1000
 
 currDir<-"C:\\Users\\dsmith\\Documents\\FIU\\Git\\Met-Info\\pri_precip\\Golden Data"
@@ -63,7 +63,7 @@ cumPrecip<-cumsum(expPrecip)
 precipTotals<-cumPrecip+baseline
 
 ##add in emptying event half way through
-precipTotals<-c(precipTotals[1:length(precipTotals)/2],precipTotals[(length(precipTotals)/2)+1:length(precipTotals)]-precipTotals[length(precipTotals)/2])
+precipTotals<-c(precipTotals[1:(length(precipTotals)/2)],precipTotals[((length(precipTotals)/2)+1):length(precipTotals)]-precipTotals[(length(precipTotals)/2)])
 
 ```
 
@@ -132,7 +132,7 @@ else(return("Invalid Noise Selection"))
 ## Set the noise level of the strain gauges
 ## choices include "low", "medium", and "high"
 no1<-"medium"
-no2<-"low"
+no2<-"medium"
 no3<-"low"
 
 noiseLevel1(no1=no1)
@@ -215,6 +215,9 @@ repFreq$rowNum<-as.numeric(row.names(repFreq))
 ##Sort the data set by the row numbers
 finalFreq<-repFreq[order(repFreq$rowNum),]
 
+##remove the NAs generated from replicating the data set
+finalFreq<-na.omit(finalFreq)
+
 ```
 
 
@@ -226,12 +229,17 @@ start <- as.POSIXct("2012-01-15",tz="UTC")
 interval <- 10
 
 ##Normal R time format
-time<-seq(from=start, by=interval, length.out=nrow(finalFreq))
+#time<-seq(from=start, by=interval, length.out=nrow(finalFreq))
 
 ##Time formatted for CI
-#time<-format(seq(from=start, by=interval, length.out=nrow(finalFreq)),"%d-%b-%y %I.%M.%OS3 %p")
+time<-format(seq(from=start, by=interval, length.out=nrow(finalFreq)),"%d-%b-%y %I.%M.%OS3 %p")
+
 
 precip<-data.frame(time=time,Freq1=finalFreq$wire1Freq,Freq2=finalFreq$wire2Freq,Freq3=finalFreq$wire3Freq)
+
+
+
+
 ```
 
 
@@ -290,8 +298,8 @@ gapData<<-data.frame(data.gap)
 ```
 
 ```{r, echo=FALSE,warning=FALSE}
-nGaps<-50
-minGap<-25
+nGaps<-30
+minGap<-20
 maxGap<-100
 gap(data=precip,nGaps=nGaps,minGap=minGap,maxGap=maxGap)
 
@@ -300,11 +308,22 @@ gap(data=precip,nGaps=nGaps,minGap=minGap,maxGap=maxGap)
 
 ```{r, echo=FALSE}
 
+##add in stability info to datasets
+gapData1<-gapData
+gapData1$stab1<-rep(1,times=nrow(gapData))
+gapData1$stab2<-rep(1,times=nrow(gapData))
+gapData1$stab3<-rep(1,times=nrow(gapData))
+
+cleanData1<-cleanData
+cleanData1$stab1<-rep(1,times=nrow(cleanData1))
+cleanData1$stab2<-rep(1,times=nrow(cleanData1))
+cleanData1$stab3<-rep(1,times=nrow(cleanData1))
+
 ##Write data sets to file
 
-#write.table(gapData,paste(currDir,"priPrecip_gap_goldenData_maxID_13824.csv",sep="\\"),row.names=FALSE,sep=",")
+write.table(gapData1,paste(currDir,"priPrecip_gap_goldenData_maxID_13824.csv",sep="\\"),row.names=FALSE,sep=",")
 
-#write.table(cleanData,paste(currDir,"all_priPrecip_clean_goldenData_maxID_13824.csv",sep="\\"),row.names=FALSE,sep=",")
+write.table(cleanData1,paste(currDir,"all_priPrecip_clean_goldenData_maxID_13824.csv",sep="\\"),row.names=FALSE,sep=",")
 
 
 ```
@@ -317,9 +336,9 @@ The golden data set was created with the following inputs
 * A seed `r seed`.
 * An initial bucket starting point of `r baseline` mm.
 * A `r lam` intensity rain event.
-* The size of the golden data set in terms of the number of 5 minute averages is `r size`.
+* The size of the golden data set in terms of the number of 5 minute averages is `r size`. The first two hours of the data are used to initialize the algorithm and therefore are not processed in these results.
 * Gauge nosie was set to `r no1` using seed `r seed1` for gauge 1, `r no2` using seed `r seed2` for gauge 2, and `r no3` using seed `r seed3` for gauge 3.
-* There are `r nGaps` gaps throughout the data set of 0.1 Hz data ranging in size from ` r minGap` to `r maxGap`.
+* There are `r nGaps` gaps throughout the data set of 0.1 Hz data ranging in size from `r minGap` to `r maxGap`.
 
 
 
@@ -350,6 +369,8 @@ Depth_Range_Low<--10
 ##Load raw frequency data
 data<-gapData
 
+#convert back from CI timestamp to R timestamp
+data$time<-as.POSIXct(data$time,format="%d-%b-%y %I.%M.%OS %p",tz="UTC")
 
 
 data$DEPTH1<-c1_1*(data$Freq1-f0_1)+(c2_1*((data$Freq1-f0_1)^2))
@@ -661,8 +682,9 @@ colnames(precipOut)<-c("time","delta1","delta2","delta3","intPrecip","lowDepthQF
 ##Convert matrix to data frame
 precipOut<-as.data.frame(precipOut)
 
+
 ##Convert seconds since epoch timestamp back to posixCT 
-precipOut$time<-as.POSIXct(precipOut$time, origin="1970-01-01",tz="UTC")
+precipOut$time<-as.POSIXct(precipOut$time, origin="1970-01-01",tz="MST")
 
 ## Convert all NAs in dataframe to zero
 precipOut[is.na(precipOut)]<-0
@@ -783,6 +805,8 @@ precipOut$roundedPrecip<-round2(precipOut$radjPrecip,n=2)
 
 ## Force any value less than 0.2 to 0
 precipOut$detectablePrecip<-ifelse(precipOut$roundedPrecip<0.25,0,precipOut$roundedPrecip)
+
+#set any depth that has an overflow flag to zero
 precipOut$finalPrecip<-ifelse(precipOut$overflowQF>0,0,precipOut$detectablePrecip)
 
 
@@ -827,73 +851,97 @@ The were `r nrow(precipOut[precipOut$finalPrecip >0,])` of precipitation events 
 
 Quality flag results are presented below by both the number of failures for a given quality flag as well as the percent of failures over the entire data set.
 
-lowDepthQF| exDeltaQF | missingWireInfoQF| gaugeNoiseQF| WireNoiseQF | OverflowQF | priorDepthQF |nullQF
+lowDepth| exDelta | missingWireInfo| gaugeNoise| WireNoise | Overflow | priorDepth |null
 --------|--------|--------|--------|--------|--------|--------|--------
-`r nrow(precipOut[precipOut$lowDepthQF==1,])` ( `r round(nrow(precipOut[precipOut$lowDepthQF==1,])/nrow(precipOut)*100,digits=2)`%)|`r nrow(precipOut[precipOut$exDeltaQF==1,])` ( `r round(nrow(precipOut[precipOut$exDeltaQF==1,])/nrow(precipOut)*100,digits=2)`%) | `r nrow(precipOut[precipOut$missingWireInfoQF==1,])` ( `r round(nrow(precipOut[precipOut$missingWireInfoQF==1,])/nrow(precipOut)*100,digits=2)`%) |`r nrow(precipOut[precipOut$gaugeNoiseQF==1,])` ( `r round(nrow(precipOut[precipOut$gaugeNoiseQF==1,])/nrow(precipOut)*100,digits=2)`%) |`r nrow(precipOut[precipOut$wireNoiseQF==1,])` ( `r round(nrow(precipOut[precipOut$wireNoiseQF==1,])/nrow(precipOut)*100,digits=2)`%) | `r nrow(precipOut[precipOut$overflowQF==1,])` ( `r nrow(precipOut[precipOut$overflowQF==1,])/nrow(precipOut)`%) | `r nrow(precipOut[precipOut$priorDepthQF==1,])` ( `r round(nrow(precipOut[precipOut$priorDepthQF==1,])/nrow(precipOut)*100,digits=2)`%)|`r nrow(precipOut[precipOut$gapQF==1,])` ( `r round(nrow(precipOut[precipOut$gapQF==1,])/nrow(precipOut)*100,digits=2)`%)
+`r nrow(precipOut[precipOut$lowDepthQF==1,])` ( `r round(nrow(precipOut[precipOut$lowDepthQF==1,])/nrow(precipOut)*100,digits=2)`%)|`r nrow(precipOut[precipOut$exDeltaQF==1,])` ( `r round(nrow(precipOut[precipOut$exDeltaQF==1,])/nrow(precipOut)*100,digits=2)`%) | `r nrow(precipOut[precipOut$missingWireInfoQF==1,])` ( `r round(nrow(precipOut[precipOut$missingWireInfoQF==1,])/nrow(precipOut)*100,digits=2)`%) |`r nrow(precipOut[precipOut$gaugeNoiseQF==1,])` ( `r round(nrow(precipOut[precipOut$gaugeNoiseQF==1,])/nrow(precipOut)*100,digits=2)`%) |`r nrow(precipOut[precipOut$wireNoiseQF==1,])` ( `r round(nrow(precipOut[precipOut$wireNoiseQF==1,])/nrow(precipOut)*100,digits=2)`%) | `r nrow(precipOut[precipOut$overflowQF==1,])` ( `r round(nrow(precipOut[precipOut$overflowQF==1,])/nrow(precipOut),digits=2)`%) | `r nrow(precipOut[precipOut$priorDepthQF==1,])` ( `r round(nrow(precipOut[precipOut$priorDepthQF==1,])/nrow(precipOut)*100,digits=2)`%)|`r nrow(precipOut[precipOut$gapQF==1,])` ( `r round(nrow(precipOut[precipOut$gapQF==1,])/nrow(precipOut)*100,digits=2)`%)
+
+
+
+\newpage
+
+
+
+
+
+
+
 
 
 ##Plots
 
-The plot below shows the status of the nullQF troughout the data set.
+
+The plot below shows where the exDeltaQF failed. The vertical line indicates where the flag was set to 1, which was due to a simulated bucket emptying event. 
+
+The extreme delta quality flag indicates when precipitation could not be calculated for one or more of the strain gauges because the difference between the current and previous depth measurements for a given strain gauge was too extreme large. This is an indication of an erroneous measurement that may arise for a number of reasons, e.g., broken wire, gauge emptying, and wind pumping.
+
 ```{r,echo=FALSE,warning=FALSE}
-
-##Null Plots
-
+##extreme delta
 library(ggplot2)
-p1<-ggplot(precipOut) + geom_point(aes(x = time, y = finalPrecip, colour =  gapQF > 0)) +
-  scale_colour_manual(name = 'Null', values = setNames(c('red','blue'),c(T, F))) +
+p1<-ggplot(precipOut) + geom_point(aes(x = time, y = finalPrecip, colour =  exDeltaQF > 0)) +
+  scale_colour_manual(name = 'exDeltaQF', values = setNames(c('red','blue'),c(T, F))) +
+   geom_vline(xintercept=as.numeric(precipOut$time[precipOut$exDeltaQF==1]), linetype="dotted")+
   xlab('Time') + ylab('Precipitation (mm)')
 
 p1
 
 ```
 
-The plot below shows the status of the priorDepthQF troughout the data set.
+\newpage
+
+The plot below shows the status of the missingWireInfoQF troughout the data set. The missing wire information flag indicates when precipitation could not be calculated for a time period because two or more of the strain gauges had invalid measurements.
+
 ```{r,echo=FALSE,warning=FALSE}
 
-##priorDepthQF Plots
+##Null Plots
 
-library(ggplot2)
-p2<-ggplot(precipOut) + geom_point(aes(x = time, y = finalPrecip, colour =  priorDepthQF > 0)) +
-  scale_colour_manual(name = 'Prior Depths Missing', values = setNames(c('red','blue'),c(T, F))) +
+
+p2<-ggplot(precipOut) + geom_point(aes(x = time, y = finalPrecip, colour =  missingWireInfoQF > 0)) +
+  scale_colour_manual(name = 'missingWireInfoQF', values = setNames(c('red','blue'),c(T, F))) +
   xlab('Time') + ylab('Precipitation (mm)')
 
 p2
 
 ```
 
+\newpage
 
-The plot below shows the status of the wireNoiseQF troughout the data set.
+The plot below shows the status of the gaugeNoiseQF troughout the data set. The gauge noise quality flag indicates when precipitation was set to zero for a time period because the difference among the individual strain gauge measurements was too large for the given time interval. 
+
 ```{r,echo=FALSE,warning=FALSE}
-##Wire Noise Plot
-p3<-ggplot(precipOut) + geom_point(aes(x = time, y = finalPrecip, colour =  wireNoiseQF > 0)) +
-  scale_colour_manual(name = 'Wire Noise', values = setNames(c('red','blue'),c(T, F))) +
+
+##Null Plots
+
+library(ggplot2)
+p3<-ggplot(precipOut) + geom_point(aes(x = time, y = finalPrecip, colour =  gaugeNoiseQF > 0)) +
+  scale_colour_manual(name = 'gaugeNoiseQF', values = setNames(c('red','blue'),c(T, F))) +
   xlab('Time') + ylab('Precipitation (mm)')
 
 p3
 
 ```
 
-The plot below shows where the exDeltaQF failed. The vertical line indicates where the flag was set to 1, which was due to a simulated bucket emptying event.
+\newpage
+
+The plot below shows the status of the wireNoiseQF troughout the data set. The wire noise quality flag indicates when precipitation was set to zero for a time period because one or more of the strain gauges depth change was negative over the time interval. 
 
 ```{r,echo=FALSE,warning=FALSE}
-##extreme delta
-p4<-ggplot(precipOut) + geom_point(aes(x = time, y = finalPrecip, colour =  exDeltaQF > 0)) +
-  scale_colour_manual(name = 'exDeltaQF', values = setNames(c('red','blue'),c(T, F))) +
-   geom_vline(xintercept=as.numeric(precipOut$time[precipOut$exDeltaQF==1]), linetype="dotted")+
+##Wire Noise Plot
+p4<-ggplot(precipOut) + geom_point(aes(x = time, y = finalPrecip, colour =  wireNoiseQF > 0)) +
+  scale_colour_manual(name = 'wireNoiseQF', values = setNames(c('red','blue'),c(T, F))) +
   xlab('Time') + ylab('Precipitation (mm)')
 
 p4
 
 ```
 
+\newpage
 
 The plot below shows where the overflowQF failed. The vertical line indicates where the flag was set to 1, which was due to a simulated overflowing bucket.
 
 ```{r,echo=FALSE,warning=FALSE}
 ##overflowing gauge 
 p5<-ggplot(precipOut) + geom_point(aes(x = time, y = finalPrecip, colour =  overflowQF > 0)) +
-  scale_colour_manual(name = 'Overflowing Gauge', values = setNames(c('red','blue'),c(T, F))) +
+  scale_colour_manual(name = 'overflowQF', values = setNames(c('red','blue'),c(T, F))) +
    geom_vline(xintercept=as.numeric(precipOut$time[precipOut$overflowQF==1]), linetype="dotted")+
   xlab('Time') + ylab('Precipitation (mm)')
 
@@ -901,10 +949,53 @@ p5
 
 ```
 
+\newpage
 
-````{r, echo=FALSE}
-##summary stats
-library(fields)
+The plot below shows the status of the priorDepthQF troughout the data set. The prior depth quality flag indicates when precipitation could not be calculated for a time period because the two previous depth measurements were missing for two or more of the strain gauges.
 
-print(stats(precipOut))
+```{r,echo=FALSE,warning=FALSE}
+
+##priorDepthQF Plots
+
+library(ggplot2)
+p6<-ggplot(precipOut) + geom_point(aes(x = time, y = finalPrecip, colour =  priorDepthQF > 0)) +
+  scale_colour_manual(name = 'priorDepthQF', values = setNames(c('red','blue'),c(T, F))) +
+  xlab('Time') + ylab('Precipitation (mm)')
+
+p6
+
+```
+
+\newpage
+
+The plot below shows the status of the nullQF troughout the data set.
+
+
+```{r,echo=FALSE,warning=FALSE}
+
+##Null Plots
+
+library(ggplot2)
+p7<-ggplot(precipOut) + geom_point(aes(x = time, y = finalPrecip, colour =  gapQF > 0)) +
+  scale_colour_manual(name = 'nullQF', values = setNames(c('red','blue'),c(T, F))) +
+  xlab('Time') + ylab('Precipitation (mm)')
+
+p7
+
+```
+
+
+
+
+
+
+
+
+
+
+````{r, echo=FALSE,warning=FALSE}
+# ##summary stats
+# library(fields)
+# 
+# print(stats(precipOut))
 ```
