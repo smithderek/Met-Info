@@ -237,6 +237,7 @@ time<-format(seq(from=start, by=interval, length.out=nrow(finalFreq)),"%d-%b-%y 
 
 precip<-data.frame(time=time,Freq1=finalFreq$wire1Freq,Freq2=finalFreq$wire2Freq,Freq3=finalFreq$wire3Freq)
 
+precip$orificeHeater<-c(rep("000",times=((nrow(precip)/2)-3000)),rep("100",times=500),rep("110",times=1000),rep("111",times=500),rep("000",times=((nrow(precip)/2)+1000)))
 
 
 
@@ -313,11 +314,17 @@ gapData1<-gapData
 gapData1$stab1<-rep(1,times=nrow(gapData))
 gapData1$stab2<-rep(1,times=nrow(gapData))
 gapData1$stab3<-rep(1,times=nrow(gapData))
+#gapData1$orificeHeater<-c(rep("000",times=((nrow(gapData)/2)-3000)),rep("100",times=500),rep("110",times=1000),rep("111",times=500),rep("000",times=((nrow(gapData)/2)+1000)))
 
 cleanData1<-cleanData
 cleanData1$stab1<-rep(1,times=nrow(cleanData1))
 cleanData1$stab2<-rep(1,times=nrow(cleanData1))
 cleanData1$stab3<-rep(1,times=nrow(cleanData1))
+#cleanData1$orificeHeater<-c(rep("000",times=((nrow(gapData)/2)-3000)),rep("100",times=500),rep("110",times=1000),rep("111",times=500),rep("000",times=((nrow(gapData)/2)+1000)))
+
+
+##Add ofifice heaer info into dataset
+
 
 ##Write data sets to file
 
@@ -350,6 +357,40 @@ The golden data set was created with the following inputs
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 ```{r,echo=FALSE}
 
 
@@ -369,6 +410,12 @@ Depth_Range_Low<--10
 ##Load raw frequency data
 data<-gapData
 
+
+
+
+
+
+
 #convert back from CI timestamp to R timestamp
 data$time<-as.POSIXct(data$time,format="%d-%b-%y %I.%M.%OS %p",tz="UTC")
 
@@ -379,8 +426,35 @@ data$DEPTH3<-c1_3*(data$Freq3-f0_3)+(c2_3*((data$Freq3-f0_3)^2))
 
 #######################################################################
 
+
+##############################################################################
+##############################################################################
+## Orifice heater info
+##############################################################################
+
+
+data$inletHeat1<-ifelse(data$orificeHeater=="100",100,0)
+  
+  data$inletHeat2<-ifelse(data$orificeHeater=="110",100,0)
+  
+  data$inletHeat3<-ifelse(data$orificeHeater=="111",100,0)
+
+
+
+inletHeatQMs <- aggregate(data[,c("inletHeat1","inletHeat2","inletHeat3")], list(time=cut(data$time,breaks="5 min")),FUN="mean",na.rm = TRUE)
+
+inletHeatQMs$time<-as.POSIXct(inletHeatQMs$time,tz="UTC")
+
+#################################################################################################
+#################################################################################################
+
+###################################################################################################
+## Aggregate the rpecip data into one minute averages that will be captured every five minutes
+####################################################################################################
+
+
 ##create one minute means over the time series
-precip.min.means <- aggregate(data[,c(2,3,4,6,7,8)], list(time=cut(data$time,breaks="min")),mean,na.rm = TRUE)
+precip.min.means <- aggregate(data[,c("Freq1","Freq2","Freq3","DEPTH1","DEPTH2","DEPTH3")], list(time=cut(data$time,breaks="min")),mean,na.rm = TRUE)
 
 #################################################
 ##summarize the number of gaps in the data set
@@ -391,7 +465,7 @@ gap.min.means <- aggregate(data$gapQF, list(time=cut(data$time,breaks="min")),su
 precip.min.means$gapQF<-ifelse(gap.min.means$x < 6,0,1)
 
 ## convert time stamps to posixct
-precip.min.means$time<-as.POSIXct(precip.min.means$time)
+precip.min.means$time<-as.POSIXct(precip.min.means$time,tz="UTC")
 
 ##Subset the one minute means at five minute increments
 
@@ -404,6 +478,8 @@ data<-precip.min.means[precip.min.means$min=="00" |precip.min.means$min=="05"|pr
 
 
 
+##add in the 5 minute averages of the orifice heater flag
+data<-merge(data,inletHeatQMs,by="time")
 
 
 
@@ -477,6 +553,18 @@ depthOF<-cbind(depth1OF,depth2OF,depth3OF)
 depthOFInfo<-apply(depthOF,MARGIN=1,FUN=sum)
 ##set the precip to 0 if the gauge was overflowing and set the overflowQF to 1
 data$overflowQF<-ifelse(depthOFInfo>=1,1,0)
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -667,7 +755,7 @@ missingWire<-0
 #USCRN code chunk - weightedAverageOfDeltas
 ##############################################
 
-  dep<-cbind(x$time[25:36],x$delta1[25:36],x$delta2[25:36],x$delta3[25:36],(scaledWireWeight1*x$delta1[25:36])+(scaledWireWeight2*x$delta2[25:36])+(scaledWireWeight3*x$delta3[25:36]),rep(lowDepth,times=12),rep(giant,times=12),rep(missingWire,times=12),x$gapQF[25:36],x$priorDepthQF[25:36],x$overflowQF[25:36])
+  dep<-cbind(x$time[25:36],x$delta1[25:36],x$delta2[25:36],x$delta3[25:36],(scaledWireWeight1*x$delta1[25:36])+(scaledWireWeight2*x$delta2[25:36])+(scaledWireWeight3*x$delta3[25:36]),rep(lowDepth,times=12),rep(giant,times=12),rep(missingWire,times=12),x$gapQF[25:36],x$priorDepthQF[25:36],x$overflowQF[25:36],x$inletHeat1[25:36],x$inletHeat2[25:36],x$inletHeat3[25:36])
     
   precipOut<-rbind(precipOut,dep)
 
@@ -677,14 +765,14 @@ missingWire<-0
 
 
 ##create column headers
-colnames(precipOut)<-c("time","delta1","delta2","delta3","intPrecip","lowDepthQF","exDeltaQF","missingWireInfoQF","gapQF", "priorDepthQF","overflowQF")
+colnames(precipOut)<-c("time","delta1","delta2","delta3","intPrecip","lowDepthQF","exDeltaQF","missingWireInfoQF","gapQF", "priorDepthQF","overflowQF","inletHeaters1QM","inletHeaters2QM","inletHeaters3QM")
 
 ##Convert matrix to data frame
 precipOut<-as.data.frame(precipOut)
 
 
 ##Convert seconds since epoch timestamp back to posixCT 
-precipOut$time<-as.POSIXct(precipOut$time, origin="1970-01-01",tz="MST")
+precipOut$time<-as.POSIXct(precipOut$time, origin="1970-01-01",tz="UTC")
 
 ## Convert all NAs in dataframe to zero
 precipOut[is.na(precipOut)]<-0
@@ -808,7 +896,6 @@ precipOut$detectablePrecip<-ifelse(precipOut$roundedPrecip<0.25,0,precipOut$roun
 
 #set any depth that has an overflow flag to zero
 precipOut$finalPrecip<-ifelse(precipOut$overflowQF>0,0,precipOut$detectablePrecip)
-
 
 ```
 
@@ -986,7 +1073,23 @@ p7
 
 
 
+```{r,echo=FALSE,warning=FALSE}
 
+library(reshape2)
+
+QM<-precipOut[,c("time","inletHeaters1QM","inletHeaters2QM","inletHeaters3QM")]
+QML<-melt(QM,id.vars="time")
+
+##Quality metrics for the inlet heaters Plots
+
+library(ggplot2)
+p8<-ggplot(QML) + geom_point(aes(x = time, y = value, colour =  variable)) +
+  #scale_colour_manual(name = 'nullQF', values = setNames(c('red','blue'),c(T, F))) +
+  xlab('Time') + ylab('inletHeaterQM %')
+
+p8
+
+```
 
 
 
