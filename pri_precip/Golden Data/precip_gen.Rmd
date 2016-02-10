@@ -1,7 +1,7 @@
 ---
 title: "Precip Golden Data"
 author: "Derek Smith"
-date: "Tuesday, January 26, 2016"
+date: "February 04, 2016"
 output: pdf_document
 ---
 
@@ -236,8 +236,41 @@ time<-format(seq(from=start, by=interval, length.out=nrow(finalFreq)),"%d-%b-%y 
 
 
 precip<-data.frame(time=time,Freq1=finalFreq$wire1Freq,Freq2=finalFreq$wire2Freq,Freq3=finalFreq$wire3Freq)
+```
 
+
+```{r, echo=FALSE}
+############################
+##Inlet heater info
+###########################
+
+##Add inlet heaer info into the data set
 precip$orificeHeater<-c(rep("000",times=((nrow(precip)/2)-3000)),rep("100",times=500),rep("110",times=1000),rep("111",times=500),rep("000",times=((nrow(precip)/2)+1000)))
+```
+
+```{r, echo=FALSE}
+############################
+##Stability info
+###########################
+
+#add stability info into the data set
+precip$stab1<-c(rep(1,times=(nrow(precip)-1000)),rep(0,times=1000))
+precip$stab2<-rep(1,times=nrow(precip))
+precip$stab3<-rep(1,times=nrow(precip))
+
+```
+
+
+```{r, echo=FALSE}
+############################
+##Inlet and internal temp info
+###########################
+set.seed(1234)
+#add internal and inlet temperature to the data set which should set the heater error QF as follows(no flag, flag, no flag, flag, noflag, flag )
+precip$inletTemp<-c(rnorm(n=((nrow(precip)/2)-3000),mean=8,sd=0.2),rnorm(n=500,mean=8,sd=0.2),rnorm(n=500,mean=0,sd=0.2),rnorm(n=500,mean=-2,sd=0.2),rnorm(n=((nrow(precip)/2)+1000),mean=7,sd=0.2),rnorm(n=500,mean=-8,sd=0.2))
+
+set.seed(12)
+precip$internTemp<-c(rnorm(n=((nrow(precip)/2)-3000),mean=8,sd=0.2),rnorm(n=500,mean=8,sd=0.2),rnorm(n=500,mean=-2,sd=0.2),rnorm(n=500,mean=0,sd=0.2),rnorm(n=((nrow(precip)/2)+1000),mean=7,sd=0.2),rnorm(n=500,mean=-8,sd=0.2))
 
 
 
@@ -308,30 +341,34 @@ gap(data=precip,nGaps=nGaps,minGap=minGap,maxGap=maxGap)
 
 
 ```{r, echo=FALSE}
+write.table(gapData[,c("time","Freq1")],paste(currDir,"CI\\priPrecip_tarnished_maxID_13824_gauge1_frequency.csv",sep="\\"),row.names=FALSE,sep=",")
 
-##add in stability info to datasets
-gapData1<-gapData
-gapData1$stab1<-rep(1,times=nrow(gapData))
-gapData1$stab2<-rep(1,times=nrow(gapData))
-gapData1$stab3<-rep(1,times=nrow(gapData))
-#gapData1$orificeHeater<-c(rep("000",times=((nrow(gapData)/2)-3000)),rep("100",times=500),rep("110",times=1000),rep("111",times=500),rep("000",times=((nrow(gapData)/2)+1000)))
+write.table(gapData[,c("time","Freq2")],paste(currDir,"CI\\priPrecip_tarnished_maxID_13824_gauge2_frequency.csv",sep="\\"),row.names=FALSE,sep=",")
 
-cleanData1<-cleanData
-cleanData1$stab1<-rep(1,times=nrow(cleanData1))
-cleanData1$stab2<-rep(1,times=nrow(cleanData1))
-cleanData1$stab3<-rep(1,times=nrow(cleanData1))
-#cleanData1$orificeHeater<-c(rep("000",times=((nrow(gapData)/2)-3000)),rep("100",times=500),rep("110",times=1000),rep("111",times=500),rep("000",times=((nrow(gapData)/2)+1000)))
+write.table(gapData[,c("time","Freq3")],paste(currDir,"CI\\priPrecip_tarnished_maxID_13824_gauge3_frequency.csv",sep="\\"),row.names=FALSE,sep=",")
 
 
-##Add ofifice heaer info into dataset
+write.table(gapData[,c("time","inletTemp")],paste(currDir,"CI\\priPrecip_tarnished_maxID_13824_inletTemp.csv",sep="\\"),row.names=FALSE,sep=",")
+
+write.table(gapData[,c("time","internTemp")],paste(currDir,"CI\\priPrecip_tarnished_maxID_13824_internTemp.csv",sep="\\"),row.names=FALSE,sep=",")
+
+
+write.table(gapData[,c("time","stab1")],paste(currDir,"CI\\priPrecip_tarnished_maxID_13824_gauge1_stability.csv",sep="\\"),row.names=FALSE,sep=",")
+
+write.table(gapData[,c("time","stab2")],paste(currDir,"CI\\priPrecip_tarnished_maxID_13824_gauge2_stability.csv",sep="\\"),row.names=FALSE,sep=",")
+
+write.table(gapData[,c("time","stab3")],paste(currDir,"CI\\priPrecip_tarnished_maxID_13824_gauge3_stability.csv",sep="\\"),row.names=FALSE,sep=",")
+
+write.table(gapData[,c("time","orificeHeater")],paste(currDir,"CI\\priPrecip_tarnished_maxID_13824_inletHeater.csv",sep="\\"),row.names=FALSE,sep=",")
 
 
 ##Write data sets to file
 
-write.table(gapData1,paste(currDir,"priPrecip_gap_goldenData_maxID_13824.csv",sep="\\"),row.names=FALSE,sep=",")
+write.table(gapData,paste(currDir,"priPrecip_gap_goldenData_maxID_13824.csv",sep="\\"),row.names=FALSE,sep=",")
 
-write.table(cleanData1,paste(currDir,"all_priPrecip_clean_goldenData_maxID_13824.csv",sep="\\"),row.names=FALSE,sep=",")
+write.table(cleanData,paste(currDir,"all_priPrecip_clean_goldenData_maxID_13824.csv",sep="\\"),row.names=FALSE,sep=",")
 
+#* A `r lam` intensity rain event.
 
 ```
 
@@ -342,7 +379,6 @@ The golden data set was created with the following inputs
 
 * A seed `r seed`.
 * An initial bucket starting point of `r baseline` mm.
-* A `r lam` intensity rain event.
 * The size of the golden data set in terms of the number of 5 minute averages is `r size`. The first two hours of the data are used to initialize the algorithm and therefore are not processed in these results.
 * Gauge nosie was set to `r no1` using seed `r seed1` for gauge 1, `r no2` using seed `r seed2` for gauge 2, and `r no3` using seed `r seed3` for gauge 3.
 * There are `r nGaps` gaps throughout the data set of 0.1 Hz data ranging in size from `r minGap` to `r maxGap`.
@@ -410,9 +446,28 @@ Depth_Range_Low<--10
 ##Load raw frequency data
 data<-gapData
 
+##Check stability info 
+data$Freq1<-ifelse(data$stab1=="1",data$Freq1,NA)
+data$Freq1<-ifelse(data$stab1=="1",data$Freq1,NA)
+data$Freq1<-ifelse(data$stab1=="1",data$Freq1,NA)
+
+##Fail
+data$wireStafailQF1<-ifelse(data$stab1=="1" | is.na(data$stab1) ,0,100)
+data$wireStafailQF2<-ifelse(data$stab2=="1"| is.na(data$stab2),0,100)
+data$wireStafailQF3<-ifelse(data$stab3=="1"| is.na(data$stab3),0,100)
+
+##Pass
+data$wireStaPassQF1<-ifelse(data$stab1=="0"| is.na(data$stab1),0,100)
+data$wireStaPassQF2<-ifelse(data$stab2=="0"| is.na(data$stab2),0,100)
+data$wireStaPassQF3<-ifelse(data$stab3=="0"| is.na(data$stab3),0,100)
+
+##Missing
+data$wireStaNAQF1<-ifelse(is.na(data$stab1),100,0)
+data$wireStaNAQF2<-ifelse(is.na(data$stab2),100,0)
+data$wireStaNAQF3<-ifelse(is.na(data$stab3),100,0)
 
 
-
+## Need to average the QM over the one minute period
 
 
 
@@ -439,11 +494,23 @@ data$inletHeat1<-ifelse(data$orificeHeater=="100",100,0)
   
   data$inletHeat3<-ifelse(data$orificeHeater=="111",100,0)
 
+  data$inletHeatNA<-ifelse(is.na(data$orificeHeater),100,0)
 
 
-inletHeatQMs <- aggregate(data[,c("inletHeat1","inletHeat2","inletHeat3")], list(time=cut(data$time,breaks="5 min")),FUN="mean",na.rm = TRUE)
+inletHeatQMs <- aggregate(data[,c("inletHeat1","inletHeat2","inletHeat3","inletHeatNA")], list(time=cut(data$time,breaks="5 min")),FUN="mean",na.rm = TRUE)
 
 inletHeatQMs$time<-as.POSIXct(inletHeatQMs$time,tz="UTC")
+
+##Get the orifice heater status at five minute inervals
+
+OH<-subset(data, format(time,'%M') %in% c('00', '05', '10', '15', '20','25','30','35','40','45','50','55'),select=c(time, orificeHeater))
+
+ orificeHeater<-subset(OH, format(time,'%S')=="00", select=c(time, orificeHeater))
+
+```
+
+```{r,echo=FALSE}
+
 
 #################################################################################################
 #################################################################################################
@@ -454,7 +521,7 @@ inletHeatQMs$time<-as.POSIXct(inletHeatQMs$time,tz="UTC")
 
 
 ##create one minute means over the time series
-precip.min.means <- aggregate(data[,c("Freq1","Freq2","Freq3","DEPTH1","DEPTH2","DEPTH3")], list(time=cut(data$time,breaks="min")),mean,na.rm = TRUE)
+precip.min.means <- aggregate(data[,c("Freq1","Freq2","Freq3","DEPTH1","DEPTH2","DEPTH3","wireStafailQF1","wireStafailQF2","wireStafailQF3","wireStaPassQF1","wireStaPassQF2","wireStaPassQF3","wireStaNAQF1","wireStaNAQF2","wireStaNAQF3","inletTemp","internTemp")], list(time=cut(data$time,breaks="min")),mean,na.rm = TRUE)
 
 #################################################
 ##summarize the number of gaps in the data set
@@ -480,6 +547,7 @@ data<-precip.min.means[precip.min.means$min=="00" |precip.min.means$min=="05"|pr
 
 ##add in the 5 minute averages of the orifice heater flag
 data<-merge(data,inletHeatQMs,by="time")
+data<-merge(data,orificeHeater,by="time")
 
 
 
@@ -557,9 +625,26 @@ data$overflowQF<-ifelse(depthOFInfo>=1,1,0)
 
 
 
+# ################################################################
+# ## heaterErrorQF
+# ###################################################################
 
-
-
+data$heaterErrQF<-ifelse(data$internTemp> -6 & data$internTemp< 2, 
+                    
+                    #yes
+                    ifelse(data$inletTemp>data$internTemp, 0, 1),
+                    
+                    #No
+                    
+                    ifelse(data$internTemp> 6,
+                           
+                           #yes
+                          #ifelse( data$inletHeat1==1 | data$inletHeat2==1 | data$inletHeat3==1 ,1,0),
+                          
+                          ifelse(data$orificeHeater=="000",0,1),
+                          #No
+                          0)
+                    )
 
 
 
@@ -755,17 +840,19 @@ missingWire<-0
 #USCRN code chunk - weightedAverageOfDeltas
 ##############################################
 
-  dep<-cbind(x$time[25:36],x$delta1[25:36],x$delta2[25:36],x$delta3[25:36],(scaledWireWeight1*x$delta1[25:36])+(scaledWireWeight2*x$delta2[25:36])+(scaledWireWeight3*x$delta3[25:36]),rep(lowDepth,times=12),rep(giant,times=12),rep(missingWire,times=12),x$gapQF[25:36],x$priorDepthQF[25:36],x$overflowQF[25:36],x$inletHeat1[25:36],x$inletHeat2[25:36],x$inletHeat3[25:36])
+  dep<-cbind(x$time[25:36],x$delta1[25:36],x$delta2[25:36],x$delta3[25:36],(scaledWireWeight1*x$delta1[25:36])+(scaledWireWeight2*x$delta2[25:36])+(scaledWireWeight3*x$delta3[25:36]),rep(lowDepth,times=12),rep(giant,times=12),rep(missingWire,times=12),x$gapQF[25:36],x$priorDepthQF[25:36],x$overflowQF[25:36],x$inletHeat1[25:36],x$inletHeat2[25:36],x$inletHeat3[25:36],x$inletHeatNA[25:36],x$wireStafailQF1[25:36],x$wireStafailQF2[25:36],x$wireStafailQF3[25:36],x$wireStaPassQF1[25:36],x$wireStaPassQF2[25:36],x$wireStaPassQF3[25:36],x$wireStaNAQF1[25:36],x$wireStaNAQF2[25:36],x$wireStaNAQF3[25:36], x$heaterErrQF[25:36])
     
   precipOut<-rbind(precipOut,dep)
 
-  
+
 }
 
 
 
 ##create column headers
-colnames(precipOut)<-c("time","delta1","delta2","delta3","intPrecip","lowDepthQF","exDeltaQF","missingWireInfoQF","gapQF", "priorDepthQF","overflowQF","inletHeaters1QM","inletHeaters2QM","inletHeaters3QM")
+colnames(precipOut)<-c("time","delta1","delta2","delta3","intPrecip","lowDepthQF","exDeltaQF","missingWireInfoQF","gapQF", "priorDepthQF","overflowQF","inletHeaters1QM","inletHeaters2QM","inletHeaters3QM","inletHeatersNAQM","wire1StabilityFailQM","wire2StabilityFailQM","wire3StabilityFailQM","wire1StabilityPassQM","wire2StabilityPassQM","wire3StabilityPassQM","wire1StabilityNAQM","wire2StabilityNAQM","wire3StabilityNAQM","heaterErrorQF")
+
+
 
 ##Convert matrix to data frame
 precipOut<-as.data.frame(precipOut)
@@ -938,10 +1025,19 @@ The were `r nrow(precipOut[precipOut$finalPrecip >0,])` of precipitation events 
 
 Quality flag results are presented below by both the number of failures for a given quality flag as well as the percent of failures over the entire data set.
 
-lowDepth| exDelta | missingWireInfo| gaugeNoise| WireNoise | Overflow | priorDepth |null
---------|--------|--------|--------|--------|--------|--------|--------
-`r nrow(precipOut[precipOut$lowDepthQF==1,])` ( `r round(nrow(precipOut[precipOut$lowDepthQF==1,])/nrow(precipOut)*100,digits=2)`%)|`r nrow(precipOut[precipOut$exDeltaQF==1,])` ( `r round(nrow(precipOut[precipOut$exDeltaQF==1,])/nrow(precipOut)*100,digits=2)`%) | `r nrow(precipOut[precipOut$missingWireInfoQF==1,])` ( `r round(nrow(precipOut[precipOut$missingWireInfoQF==1,])/nrow(precipOut)*100,digits=2)`%) |`r nrow(precipOut[precipOut$gaugeNoiseQF==1,])` ( `r round(nrow(precipOut[precipOut$gaugeNoiseQF==1,])/nrow(precipOut)*100,digits=2)`%) |`r nrow(precipOut[precipOut$wireNoiseQF==1,])` ( `r round(nrow(precipOut[precipOut$wireNoiseQF==1,])/nrow(precipOut)*100,digits=2)`%) | `r nrow(precipOut[precipOut$overflowQF==1,])` ( `r round(nrow(precipOut[precipOut$overflowQF==1,])/nrow(precipOut),digits=2)`%) | `r nrow(precipOut[precipOut$priorDepthQF==1,])` ( `r round(nrow(precipOut[precipOut$priorDepthQF==1,])/nrow(precipOut)*100,digits=2)`%)|`r nrow(precipOut[precipOut$gapQF==1,])` ( `r round(nrow(precipOut[precipOut$gapQF==1,])/nrow(precipOut)*100,digits=2)`%)
 
+
+
+
+lowDepth| exDelta | missingWireInfo| gaugeNoise
+--------|--------|--------|--------
+`r nrow(precipOut[precipOut$lowDepthQF==1,])` ( `r round(nrow(precipOut[precipOut$lowDepthQF==1,])/nrow(precipOut)*100,digits=2)`%)|`r nrow(precipOut[precipOut$exDeltaQF==1,])` ( `r round(nrow(precipOut[precipOut$exDeltaQF==1,])/nrow(precipOut)*100,digits=2)`%) | `r nrow(precipOut[precipOut$missingWireInfoQF==1,])` ( `r round(nrow(precipOut[precipOut$missingWireInfoQF==1,])/nrow(precipOut)*100,digits=2)`%) |`r nrow(precipOut[precipOut$gaugeNoiseQF==1,])` ( `r round(nrow(precipOut[precipOut$gaugeNoiseQF==1,])/nrow(precipOut)*100,digits=2)`%) 
+
+
+
+WireNoise | Overflow | priorDepth | null | heaterErrorQF
+--------|--------|--------|--------|--------
+`r nrow(precipOut[precipOut$wireNoiseQF==1,])` ( `r round(nrow(precipOut[precipOut$wireNoiseQF==1,])/nrow(precipOut)*100,digits=2)`%) | `r nrow(precipOut[precipOut$overflowQF==1,])` ( `r round(nrow(precipOut[precipOut$overflowQF==1,])/nrow(precipOut),digits=2)`%) | `r nrow(precipOut[precipOut$priorDepthQF==1,])` ( `r round(nrow(precipOut[precipOut$priorDepthQF==1,])/nrow(precipOut)*100,digits=2)`%) | `r nrow(precipOut[precipOut$gapQF==1,])` ( `r round(nrow(precipOut[precipOut$gapQF==1,])/nrow(precipOut)*100,digits=2)`%) | `r nrow(precipOut[precipOut$heaterErrorQF==1,])` ( `r round(nrow(precipOut[precipOut$heaterErrorQF==1,])/nrow(precipOut)*100,digits=2)`%) 
 
 
 \newpage
@@ -955,7 +1051,9 @@ lowDepth| exDelta | missingWireInfo| gaugeNoise| WireNoise | Overflow | priorDep
 
 
 ##Plots
+Note in all plots the points are stacked with the lower most variable in the legend plotted last. Thus, if all of the variable are the same value only the lower most variable will be visible on the graph.  
 
+\vspace{2cm}
 
 The plot below shows where the exDeltaQF failed. The vertical line indicates where the flag was set to 1, which was due to a simulated bucket emptying event. 
 
@@ -1071,13 +1169,14 @@ p7
 
 ```
 
-
+\newpage
+The plot below shows the status of the inlet heater. InletHeaters1 is when one of the inlet heaters was on, inletHeater2 when two of the inlet heaters were on, inletHeater3 when three of the inlet heaters were on, and inletHeaterNA when no heater information was available.
 
 ```{r,echo=FALSE,warning=FALSE}
 
 library(reshape2)
 
-QM<-precipOut[,c("time","inletHeaters1QM","inletHeaters2QM","inletHeaters3QM")]
+QM<-precipOut[,c("time","inletHeaters1QM","inletHeaters2QM","inletHeaters3QM","inletHeatersNAQM")]
 QML<-melt(QM,id.vars="time")
 
 ##Quality metrics for the inlet heaters Plots
@@ -1092,6 +1191,86 @@ p8
 ```
 
 
+\newpage
+
+The plot below shows the heaterErrorQF. The heaterErrorQF is set to true (i.e., 1) when conditions exist that represnet a heater error. 
+
+```{r,echo=FALSE,warning=FALSE}
+
+#heater error QF
+p12<-ggplot(precipOut) + geom_point(aes(x = time, y = finalPrecip, colour =  heaterErrorQF > 0)) +
+  scale_colour_manual(name = 'heaterErrorQF', values = setNames(c('red','blue'),c(T, F))) +
+  xlab('Time') + ylab('Precipitation (mm)')
+
+p12
+
+```
+
+
+\newpage
+
+The plot below shows the wire stability status for wire 1. WireStabilityPass is when the sensor passed the stability test, wireStabilityFail is when the sensor failed a stability test, and wireStabilityNA is when no stability information was avaiable for the wire. 
+
+```{r,echo=FALSE,warning=FALSE}
+
+library(reshape2)
+
+QMW<-precipOut[,c("time","wire1StabilityPassQM","wire1StabilityFailQM","wire1StabilityNAQM")]
+QMWL<-melt(QMW,id.vars="time")
+
+##Quality metrics for the inlet heaters Plots
+
+library(ggplot2)
+p9<-ggplot(QMWL) + geom_point(aes(x = time, y = value, colour =  variable)) +
+  #scale_colour_manual(name = 'nullQF', values = setNames(c('red','blue'),c(T, F))) +
+  xlab('Time') + ylab('wire1StabilityQM %')
+
+p9
+
+```
+
+
+\newpage
+The plot below shows the wire stability status for wire 2. WireStabilityPass is when the sensor passed the stability test, wireStabilityFail is when the sensor failed a stability test, and wireStabilityNA is when no stability information was avaiable for the wire. 
+
+```{r,echo=FALSE,warning=FALSE}
+
+library(reshape2)
+
+QMWP<-precipOut[,c("time","wire2StabilityPassQM","wire2StabilityFailQM","wire2StabilityNAQM")]
+QMWPL<-melt(QMWP,id.vars="time")
+
+##Quality metrics for the inlet heaters Plots
+
+library(ggplot2)
+p10<-ggplot(QMWPL) + geom_point(aes(x = time, y = value, colour =  variable)) +
+  #scale_colour_manual(name = 'nullQF', values = setNames(c('red','blue'),c(T, F))) +
+  xlab('Time') + ylab('wire2StabilityQM %')
+
+p10
+
+```
+
+\newpage
+The plot below shows the wire stability status for wire 3. WireStabilityPass is when the sensor passed the stability test, wireStabilityFail is when the sensor failed a stability test, and wireStabilityNA is when no stability information was avaiable for the wire. 
+
+```{r,echo=FALSE,warning=FALSE}
+
+library(reshape2)
+
+QMWN<-precipOut[,c("time","wire3StabilityPassQM","wire3StabilityFailQM","wire3StabilityNAQM")]
+QMWNL<-melt(QMWN,id.vars="time")
+
+##Quality metrics for the inlet heaters Plots
+
+library(ggplot2)
+p11<-ggplot(QMWNL) + geom_point(aes(x = time, y = value, colour =  variable)) +
+  #scale_colour_manual(name = 'nullQF', values = setNames(c('red','blue'),c(T, F))) +
+  xlab('Time') + ylab('wire3StabilityQM %')
+
+p11
+
+```
 
 
 
